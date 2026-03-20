@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Full Frame 2026 – Film List</title>
+<title>Full Frame 2026 Planner</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -129,12 +129,23 @@
   .rating-4    { background: #bbdefb; color: #0d47a1; }
   .rating-3_5  { background: #fff9c4; color: #f57f17; }
   .rating-3    { background: #ffe0b2; color: #e65100; }
+  .rating-none { background: #eeeeee; color: #9e9e9e; }
+  .rating-select {
+    appearance: none; -webkit-appearance: none;
+    border: none; border-radius: 12px;
+    padding: 3px 8px; width: 58px;
+    font-size: 12px; font-weight: 700;
+    cursor: pointer; text-align: center;
+    outline: none;
+  }
+  .rating-select:focus { box-shadow: 0 0 0 2px rgba(26,35,126,0.3); }
 
   /* ── Category badge ── */
   .cat-badge {
     display: inline-block;
     padding: 2px 8px; border-radius: 10px;
-    font-size: 11px; font-weight: 500; white-space: nowrap;
+    font-size: 11px; font-weight: 500;
+    max-width: 90px; text-align: center; line-height: 1.3;
   }
   .cat-NEW-DOCS     { background: #e3f2fd; color: #1565c0; }
   .cat-Invited      { background: #fff8e1; color: #e65100; }
@@ -198,13 +209,14 @@
 <script src="data.js"></script>
 
 <nav class="nav">
-  <h1>🎬 Full Frame Documentary Festival 2026</h1>
+  <h1>🎬 Full Frame 2026 Planner</h1>
   <a href="calendar.html" class="cal-btn">View My Schedule →</a>
 </nav>
 
 <div class="toolbar">
   <button onclick="selectAll()">Select All</button>
   <button onclick="clearAll()">Clear All</button>
+  <button onclick="clearRatings()">Clear Ratings</button>
   <span class="checked-count"><strong id="count">0</strong> films selected</span>
 </div>
 
@@ -231,6 +243,8 @@
 
 <script>
 const STORAGE_KEY = 'ff2026_checked';
+const RATINGS_KEY  = 'ff2026_ratings';
+const RATING_VALUES = [null, 0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
 const DATE_ORDER = {
   'Thursday, April 16': 0,
   'Friday, April 17': 1,
@@ -259,6 +273,34 @@ function saveChecked(set) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
 }
 
+// ── Rating state ──
+function getCustomRatings() {
+  try { return JSON.parse(localStorage.getItem(RATINGS_KEY)) || {}; }
+  catch { return {}; }
+}
+function saveCustomRatings(obj) {
+  localStorage.setItem(RATINGS_KEY, JSON.stringify(obj));
+}
+
+let customRatings = getCustomRatings();
+
+function effectiveRating(f) {
+  return customRatings.hasOwnProperty(f.id) ? customRatings[f.id] : null;
+}
+
+function ratingClass(r) {
+  return r === 5 ? 'rating-5' : r === 4.5 ? 'rating-4_5' : r === 4 ? 'rating-4'
+       : r === 3.5 ? 'rating-3_5' : r === 3 ? 'rating-3' : 'rating-none';
+}
+
+function setRating(id, value, el) {
+  const r = value === '' ? null : parseFloat(value);
+  if (r === null) delete customRatings[id];
+  else customRatings[id] = r;
+  saveCustomRatings(customRatings);
+  el.className = 'rating-select ' + ratingClass(r);
+}
+
 let checkedIds = getChecked();
 
 function toggleCheck(id) {
@@ -277,8 +319,24 @@ function selectAll() {
   renderTable();
 }
 function clearAll() {
+  if (!confirm('Clear all selected films?')) return;
   checkedIds.clear();
   saveChecked(checkedIds);
+  renderTable();
+}
+
+function clearRatings() {
+  if (!confirm('Clear all ratings? Every film will be set to blank.')) return;
+  customRatings = {};
+  saveCustomRatings(customRatings);
+  renderTable();
+}
+
+function seedRatings() {
+  if (!confirm('Restore original ratings from the source data?')) return;
+  customRatings = {};
+  FILMS.forEach(f => { if (f.rating !== null && f.rating !== undefined) customRatings[f.id] = f.rating; });
+  saveCustomRatings(customRatings);
   renderTable();
 }
 
@@ -290,8 +348,21 @@ function updateCount() {
 let sortCol = null;
 let sortDir = 1;
 
+function defaultSort(a, b) {
+  // 1. Selected first
+  const aChecked = checkedIds.has(a.id) ? 0 : 1;
+  const bChecked = checkedIds.has(b.id) ? 0 : 1;
+  if (aChecked !== bChecked) return aChecked - bChecked;
+  // 2. Rating descending (null sorts last)
+  const ra = effectiveRating(a) ?? -Infinity;
+  const rb = effectiveRating(b) ?? -Infinity;
+  if (rb !== ra) return rb - ra;
+  // 3. Title alphabetically
+  return (a.title ?? '').toLowerCase().localeCompare((b.title ?? '').toLowerCase());
+}
+
 function sortFilms(films) {
-  if (!sortCol) return films; // preserve CSV order
+  if (!sortCol) return [...films].sort(defaultSort);
   return [...films].sort((a, b) => {
     let va = a[sortCol], vb = b[sortCol];
     if (sortCol === 'screening_date') {
@@ -301,8 +372,8 @@ function sortFilms(films) {
       va = parseTimeMins(va);
       vb = parseTimeMins(vb);
     } else if (sortCol === 'rating' || sortCol === 'release_year') {
-      va = va ?? -Infinity;
-      vb = vb ?? -Infinity;
+      va = (sortCol === 'rating' ? effectiveRating(a) : va) ?? -Infinity;
+      vb = (sortCol === 'rating' ? effectiveRating(b) : vb) ?? -Infinity;
     } else {
       va = (va ?? '').toString().toLowerCase();
       vb = (vb ?? '').toString().toLowerCase();
@@ -314,10 +385,14 @@ function sortFilms(films) {
 }
 
 // ── Render ──
-function ratingBadge(r) {
-  if (r === null || r === undefined) return '';
-  const cls = r === 5 ? 'rating-5' : r === 4.5 ? 'rating-4_5' : r === 4 ? 'rating-4' : r === 3.5 ? 'rating-3_5' : 'rating-3';
-  return `<span class="rating-badge ${cls}">${r}</span>`;
+function ratingBadge(id, r) {
+  const valStr = (r !== null && r !== undefined) ? String(r) : '';
+  const opts = RATING_VALUES.map(v => {
+    const vs = v === null ? '' : String(v);
+    const label = v === null ? '—' : String(v);
+    return `<option value="${vs}"${vs === valStr ? ' selected' : ''}>${label}</option>`;
+  }).join('');
+  return `<select class="rating-select ${ratingClass(r)}" onchange="setRating('${id}', this.value, this)">${opts}</select>`;
 }
 
 function catBadge(cat) {
@@ -342,9 +417,9 @@ function renderTable() {
         <div class="title-text">${f.title}</div>
         ${origTitle}
       </td>
-      <td style="width:60px;text-align:center;vertical-align:middle">${ratingBadge(f.rating)}</td>
+      <td class="rating-cell" style="width:60px;text-align:center;vertical-align:middle">${ratingBadge(f.id, effectiveRating(f))}</td>
       <td style="vertical-align:middle">${catBadge(f.category)}</td>
-      <td class="date-cell">${f.screening_date || ''}</td>
+      <td class="date-cell">${(f.screening_date || '').split(',')[0]}</td>
       <td class="time-range">${f.screening_start_time || ''}</td>
       <td class="time-range">${f.screening_end_time || ''}</td>
       <td><span class="venue-chip">${f.venue || ''}</span></td>
@@ -383,5 +458,14 @@ document.querySelectorAll('th[data-col]').forEach(th => {
 
 renderTable();
 </script>
+
+<div style="text-align:center; padding: 40px 0 24px; opacity: 0.25;">
+  <button onclick="seedRatings()" title="Restore original ratings" style="
+    background: none; border: none; cursor: pointer;
+    font-size: 22px; line-height: 1;
+    transition: opacity 0.2s, transform 0.2s;
+  " onmouseover="this.style.opacity='1';this.style.transform='scale(1.3)'"
+     onmouseout="this.style.opacity='1';this.style.transform='scale(1)'">🌱</button>
+</div>
 </body>
 </html>
