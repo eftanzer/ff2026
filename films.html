@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full Frame 2026 – Film List</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f5f6fa;
+    color: #1a1a2e;
+    font-size: 13px;
+    padding-top: 96px; /* nav(52) + toolbar(44) */
+  }
+
+  /* ── Nav ── */
+  .nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: #1a237e;
+    color: #fff;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px;
+    height: 52px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .nav h1 { font-size: 17px; font-weight: 600; letter-spacing: 0.3px; }
+  .nav a.cal-btn {
+    background: #fff;
+    color: #1a237e;
+    padding: 7px 16px;
+    border-radius: 20px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 13px;
+    transition: background 0.15s;
+  }
+  .nav a.cal-btn:hover { background: #e8eaf6; }
+
+  /* ── Toolbar ── */
+  .toolbar {
+    position: fixed; top: 52px; left: 0; right: 0; z-index: 99;
+    height: 44px;
+    background: #fff;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+  }
+  .toolbar button {
+    padding: 5px 14px; border-radius: 16px; border: 1px solid #c5cae9;
+    background: #fff; color: #3949ab; cursor: pointer; font-size: 12px;
+    font-weight: 500; transition: all 0.15s;
+  }
+  .toolbar button:hover { background: #e8eaf6; border-color: #3949ab; }
+  .checked-count {
+    margin-left: auto;
+    font-size: 12px; color: #666;
+    background: #e8eaf6; padding: 4px 12px; border-radius: 12px;
+  }
+  .checked-count strong { color: #1a237e; }
+
+  /* ── Table wrapper ── */
+  .table-wrapper {
+    padding: 16px 20px 40px;
+  }
+
+  table {
+    width: 100%; border-collapse: collapse;
+    background: #fff;
+    border-radius: 8px;
+    overflow: clip; /* clip (not hidden) so table is not a scroll container, preserving sticky */
+    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+  }
+
+  thead tr {
+    background: #1a237e;
+    color: #fff;
+    position: sticky; top: 96px; z-index: 98;
+  }
+  th {
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  th:hover { background: #283593; }
+  th.no-sort { cursor: default; }
+  th.no-sort:hover { background: #1a237e; }
+  th .sort-icon { margin-left: 4px; opacity: 0.5; }
+  th.sorted .sort-icon { opacity: 1; }
+
+  tbody tr {
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.1s;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: #f5f7ff; }
+  tbody tr.checked-row { background: #fffde7; }
+  tbody tr.checked-row:hover { background: #fff9c4; }
+
+  td {
+    padding: 9px 12px;
+    vertical-align: top;
+    line-height: 1.4;
+  }
+
+  /* ── Checkbox ── */
+  .cb-cell { width: 40px; text-align: center; vertical-align: middle; }
+  input[type="checkbox"] {
+    width: 16px; height: 16px; cursor: pointer;
+    accent-color: #1a237e;
+  }
+
+  /* ── Rating badge ── */
+  .rating-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 36px; height: 24px; border-radius: 12px;
+    font-weight: 700; font-size: 12px;
+  }
+  .rating-5    { background: #c8e6c9; color: #1b5e20; }
+  .rating-4_5  { background: #dcedc8; color: #33691e; }
+  .rating-4    { background: #bbdefb; color: #0d47a1; }
+  .rating-3_5  { background: #fff9c4; color: #f57f17; }
+  .rating-3    { background: #ffe0b2; color: #e65100; }
+
+  /* ── Category badge ── */
+  .cat-badge {
+    display: inline-block;
+    padding: 2px 8px; border-radius: 10px;
+    font-size: 11px; font-weight: 500; white-space: nowrap;
+  }
+  .cat-NEW-DOCS     { background: #e3f2fd; color: #1565c0; }
+  .cat-Invited      { background: #fff8e1; color: #e65100; }
+  .cat-Thematic     { background: #e8f5e9; color: #2e7d32; }
+  .cat-Tribute      { background: #fce4ec; color: #880e4f; }
+  .cat-Special-Presentation { background: #f3e5f5; color: #4a148c; }
+  .cat-ENCORE       { background: #e0f2f1; color: #004d40; }
+
+  /* ── Title ── */
+  .title-cell { min-width: 180px; max-width: 260px; }
+  .title-text { font-weight: 600; color: #1a237e; line-height: 1.3; }
+  .orig-title { font-size: 11px; color: #888; margin-top: 2px; font-style: italic; }
+
+  /* ── Description ── */
+  .desc-cell { min-width: 220px; max-width: 380px; }
+  .desc-text {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    color: #444;
+    line-height: 1.45;
+  }
+  .desc-text.expanded {
+    display: block;
+    -webkit-line-clamp: unset;
+  }
+  .desc-toggle {
+    background: none; border: none; color: #3949ab;
+    cursor: pointer; font-size: 11px; padding: 2px 0;
+    margin-top: 3px; display: block;
+  }
+  .desc-toggle:hover { text-decoration: underline; }
+
+  /* ── Venue chip ── */
+  .venue-chip {
+    display: inline-block;
+    padding: 2px 8px; border-radius: 10px;
+    background: #ede7f6; color: #4527a0;
+    font-size: 11px; white-space: nowrap;
+  }
+
+  /* ── Premiere ── */
+  .premiere-text { font-size: 11px; color: #e65100; font-weight: 500; }
+
+  /* ── Dates / time ── */
+  .date-cell { white-space: nowrap; color: #333; }
+  .time-range { white-space: nowrap; color: #555; }
+
+  /* ── Year ── */
+  .year-cell { color: #666; }
+
+  /* ── Empty state ── */
+  .empty-state {
+    text-align: center; padding: 60px 20px;
+    color: #999; font-size: 15px;
+  }
+</style>
+</head>
+<body>
+<script src="data.js"></script>
+
+<nav class="nav">
+  <h1>🎬 Full Frame Documentary Festival 2026</h1>
+  <a href="calendar.html" class="cal-btn">View My Schedule →</a>
+</nav>
+
+<div class="toolbar">
+  <button onclick="selectAll()">Select All</button>
+  <button onclick="clearAll()">Clear All</button>
+  <span class="checked-count"><strong id="count">0</strong> films selected</span>
+</div>
+
+<div class="table-wrapper">
+  <table id="film-table">
+    <thead>
+      <tr>
+        <th class="no-sort cb-cell"></th>
+        <th data-col="title">Title <span class="sort-icon">↕</span></th>
+        <th data-col="rating">Rating <span class="sort-icon">↕</span></th>
+        <th data-col="category">Category <span class="sort-icon">↕</span></th>
+        <th data-col="screening_date">Date <span class="sort-icon">↕</span></th>
+        <th data-col="screening_start_time">Start <span class="sort-icon">↕</span></th>
+        <th data-col="screening_end_time">End <span class="sort-icon">↕</span></th>
+        <th data-col="venue">Venue <span class="sort-icon">↕</span></th>
+        <th data-col="premiere">Premiere <span class="sort-icon">↕</span></th>
+        <th data-col="release_year">Year <span class="sort-icon">↕</span></th>
+        <th class="no-sort">Description</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<script>
+const STORAGE_KEY = 'ff2026_checked';
+const DATE_ORDER = {
+  'Thursday, April 16': 0,
+  'Friday, April 17': 1,
+  'Saturday, April 18': 2,
+  'Sunday, April 19': 3,
+};
+
+function parseTimeMins(str) {
+  if (!str) return 0;
+  const m = str.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+  if (!m) return 0;
+  let h = parseInt(m[1]);
+  const min = parseInt(m[2]);
+  const ap = m[3].toUpperCase();
+  if (ap === 'PM' && h !== 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  return h * 60 + min;
+}
+
+// ── Checkbox state ──
+function getChecked() {
+  try { return new Set(JSON.parse(localStorage.getItem(STORAGE_KEY)) || []); }
+  catch { return new Set(); }
+}
+function saveChecked(set) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify([...set]));
+}
+
+let checkedIds = getChecked();
+
+function toggleCheck(id) {
+  if (checkedIds.has(id)) checkedIds.delete(id);
+  else checkedIds.add(id);
+  saveChecked(checkedIds);
+  updateCount();
+  // Update row highlight
+  const row = document.querySelector(`tr[data-id="${id}"]`);
+  if (row) row.classList.toggle('checked-row', checkedIds.has(id));
+}
+
+function selectAll() {
+  FILMS.forEach(f => checkedIds.add(f.id));
+  saveChecked(checkedIds);
+  renderTable();
+}
+function clearAll() {
+  checkedIds.clear();
+  saveChecked(checkedIds);
+  renderTable();
+}
+
+function updateCount() {
+  document.getElementById('count').textContent = checkedIds.size;
+}
+
+// ── Sort state ──
+let sortCol = null;
+let sortDir = 1;
+
+function sortFilms(films) {
+  if (!sortCol) return films; // preserve CSV order
+  return [...films].sort((a, b) => {
+    let va = a[sortCol], vb = b[sortCol];
+    if (sortCol === 'screening_date') {
+      va = DATE_ORDER[va] ?? 99;
+      vb = DATE_ORDER[vb] ?? 99;
+    } else if (sortCol === 'screening_start_time') {
+      va = parseTimeMins(va);
+      vb = parseTimeMins(vb);
+    } else if (sortCol === 'rating' || sortCol === 'release_year') {
+      va = va ?? -Infinity;
+      vb = vb ?? -Infinity;
+    } else {
+      va = (va ?? '').toString().toLowerCase();
+      vb = (vb ?? '').toString().toLowerCase();
+    }
+    if (va < vb) return -sortDir;
+    if (va > vb) return sortDir;
+    return 0;
+  });
+}
+
+// ── Render ──
+function ratingBadge(r) {
+  if (r === null || r === undefined) return '';
+  const cls = r === 5 ? 'rating-5' : r === 4.5 ? 'rating-4_5' : r === 4 ? 'rating-4' : r === 3.5 ? 'rating-3_5' : 'rating-3';
+  return `<span class="rating-badge ${cls}">${r}</span>`;
+}
+
+function catBadge(cat) {
+  const cls = 'cat-' + (cat || '').replace(/\s+/g, '-');
+  return `<span class="cat-badge ${cls}">${cat || ''}</span>`;
+}
+
+function renderTable() {
+  const tbody = document.getElementById('tbody');
+  const sorted = sortFilms(FILMS);
+
+  tbody.innerHTML = sorted.map(f => {
+    const checked = checkedIds.has(f.id);
+    const descId = 'desc-' + f.id;
+    const origTitle = f.original_title ? `<div class="orig-title">${f.original_title}</div>` : '';
+    const premiere = f.premiere ? `<div class="premiere-text">${f.premiere}</div>` : '';
+    return `<tr data-id="${f.id}" class="${checked ? 'checked-row' : ''}">
+      <td class="cb-cell">
+        <input type="checkbox" ${checked ? 'checked' : ''} onchange="toggleCheck('${f.id}')">
+      </td>
+      <td class="title-cell">
+        <div class="title-text">${f.title}</div>
+        ${origTitle}
+      </td>
+      <td style="width:60px;text-align:center;vertical-align:middle">${ratingBadge(f.rating)}</td>
+      <td style="vertical-align:middle">${catBadge(f.category)}</td>
+      <td class="date-cell">${f.screening_date || ''}</td>
+      <td class="time-range">${f.screening_start_time || ''}</td>
+      <td class="time-range">${f.screening_end_time || ''}</td>
+      <td><span class="venue-chip">${f.venue || ''}</span></td>
+      <td style="min-width:90px">${premiere}</td>
+      <td class="year-cell" style="width:55px">${f.release_year || ''}</td>
+      <td class="desc-cell">
+        <div class="desc-text" id="${descId}">${f.description || ''}</div>
+        ${f.description && f.description.length > 120
+          ? `<button class="desc-toggle" onclick="toggleDesc('${descId}', this)">Show more</button>`
+          : ''}
+      </td>
+    </tr>`;
+  }).join('');
+
+  updateCount();
+}
+
+function toggleDesc(id, btn) {
+  const el = document.getElementById(id);
+  const expanded = el.classList.toggle('expanded');
+  btn.textContent = expanded ? 'Show less' : 'Show more';
+}
+
+// ── Column sort headers ──
+document.querySelectorAll('th[data-col]').forEach(th => {
+  th.addEventListener('click', () => {
+    const col = th.dataset.col;
+    if (sortCol === col) sortDir *= -1;
+    else { sortCol = col; sortDir = 1; }
+    document.querySelectorAll('th.sorted').forEach(h => h.classList.remove('sorted'));
+    th.classList.add('sorted');
+    th.querySelector('.sort-icon').textContent = sortDir === 1 ? '↑' : '↓';
+    renderTable();
+  });
+});
+
+renderTable();
+</script>
+</body>
+</html>

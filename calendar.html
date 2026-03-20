@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Full Frame 2026 – My Schedule</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: #f5f6fa;
+    color: #1a1a2e;
+    font-size: 13px;
+    overflow: hidden; /* prevent body scroll; inner div scrolls */
+  }
+
+  /* ── Nav ── */
+  .nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+    background: #1a237e;
+    color: #fff;
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 20px;
+    height: 52px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  .nav a {
+    color: #c5cae9; text-decoration: none; font-size: 13px;
+    padding: 5px 12px; border-radius: 16px; border: 1px solid #3949ab;
+    transition: all 0.15s;
+  }
+  .nav a:hover { background: #283593; color: #fff; }
+  .nav h1 { font-size: 16px; font-weight: 600; flex: 1; }
+  .nav .count-badge {
+    background: #e8eaf6; color: #1a237e;
+    padding: 4px 12px; border-radius: 12px;
+    font-size: 12px; font-weight: 600;
+  }
+
+  /* ── Day headers row ── */
+  .day-headers {
+    position: fixed; top: 52px; left: 0; right: 0; z-index: 199;
+    display: flex;
+    background: #fff;
+    border-bottom: 2px solid #3949ab;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    height: 46px;
+  }
+  .day-header-spacer {
+    width: 58px; flex-shrink: 0;
+    border-right: 1px solid #e0e0e0;
+  }
+  .day-header-cell {
+    flex: 1;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 13px; color: #1a237e;
+    border-right: 1px solid #e0e0e0;
+    flex-direction: column; gap: 1px;
+  }
+  .day-header-cell:last-child { border-right: none; }
+  .day-header-cell .day-name { font-size: 11px; color: #666; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
+  .day-header-cell .day-date { font-size: 14px; font-weight: 700; color: #1a237e; }
+
+  /* ── Calendar scroll area ── */
+  .calendar-scroll {
+    position: fixed;
+    top: 98px; /* nav(52) + headers(46) */
+    left: 0; right: 0; bottom: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #fafbff;
+  }
+
+  /* ── Inner calendar layout ── */
+  .calendar-inner {
+    display: flex;
+  }
+
+  /* ── Time gutter ── */
+  .time-gutter {
+    width: 58px; flex-shrink: 0;
+    position: sticky; left: 0;
+    background: #fff;
+    border-right: 1px solid #e0e0e0;
+    z-index: 10;
+  }
+  .time-label {
+    display: flex; align-items: flex-start; justify-content: flex-end;
+    padding: 0 8px;
+    padding-top: 0;
+    font-size: 11px; color: #9e9e9e;
+    transform: translateY(-8px);
+    font-weight: 500;
+  }
+  .time-label:first-child { transform: none; padding-top: 4px; align-items: flex-start; }
+
+  /* ── Day columns ── */
+  .days-area {
+    flex: 1;
+    display: flex;
+  }
+  .day-col {
+    flex: 1;
+    position: relative;
+    border-right: 1px solid #e0e0e0;
+    min-width: 0;
+  }
+  .day-col:last-child { border-right: none; }
+
+  /* ── Hour lines ── */
+  .hour-line {
+    position: absolute; left: 0; right: 0;
+    border-top: 1px solid #e8eaf6;
+  }
+  .half-line {
+    position: absolute; left: 0; right: 0;
+    border-top: 1px dashed #f0f2ff;
+  }
+
+  /* ── Film blocks ── */
+  .film-block {
+    position: absolute;
+    border-radius: 5px;
+    padding: 5px 7px;
+    cursor: pointer;
+    overflow: hidden;
+    font-size: 11px;
+    line-height: 1.35;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.18);
+    transition: transform 0.1s, box-shadow 0.1s, opacity 0.1s;
+    border-left: 3px solid rgba(0,0,0,0.2);
+  }
+  .film-block:hover {
+    transform: translateY(-1px) scale(1.01);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    opacity: 0.95;
+    z-index: 50 !important;
+  }
+  .film-block .fb-title {
+    font-weight: 700; font-size: 11px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .film-block .fb-venue {
+    font-size: 10px; opacity: 0.85; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+    margin-top: 1px;
+  }
+  .film-block .fb-time {
+    font-size: 10px; opacity: 0.75; margin-top: 1px;
+  }
+
+  /* ── Empty state ── */
+  .empty-state {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #bbb; text-align: center; padding: 40px;
+    pointer-events: none;
+  }
+  .empty-state .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state p { font-size: 14px; line-height: 1.6; }
+  .empty-state a { pointer-events: all; color: #3949ab; }
+
+  /* ── Tooltip ── */
+  .tooltip {
+    position: fixed; z-index: 999;
+    background: #1a237e; color: #fff;
+    padding: 10px 14px; border-radius: 8px;
+    font-size: 12px; line-height: 1.5;
+    max-width: 280px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    pointer-events: none;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .tooltip.visible { opacity: 1; }
+  .tooltip .tt-title { font-weight: 700; font-size: 13px; margin-bottom: 4px; }
+  .tooltip .tt-meta { opacity: 0.85; }
+</style>
+</head>
+<body>
+<script src="data.js"></script>
+
+<nav class="nav">
+  <a href="films.html">← Film List</a>
+  <h1>My Full Frame 2026 Schedule</h1>
+  <span class="count-badge"><span id="film-count">0</span> films shown</span>
+</nav>
+
+<div class="day-headers">
+  <div class="day-header-spacer"></div>
+  <div class="day-header-cell">
+    <span class="day-name">Thursday</span>
+    <span class="day-date">Apr 16</span>
+  </div>
+  <div class="day-header-cell">
+    <span class="day-name">Friday</span>
+    <span class="day-date">Apr 17</span>
+  </div>
+  <div class="day-header-cell">
+    <span class="day-name">Saturday</span>
+    <span class="day-date">Apr 18</span>
+  </div>
+  <div class="day-header-cell">
+    <span class="day-name">Sunday</span>
+    <span class="day-date">Apr 19</span>
+  </div>
+</div>
+
+<div class="calendar-scroll">
+  <div class="calendar-inner">
+    <div class="time-gutter" id="timeGutter"></div>
+    <div class="days-area" id="daysArea"></div>
+  </div>
+</div>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-title" id="tt-title"></div>
+  <div class="tt-meta" id="tt-meta"></div>
+</div>
+
+<script>
+// ── Constants ──
+const STORAGE_KEY = 'ff2026_checked';
+const START_HOUR = 9;   // 9:00 AM
+const END_HOUR = 23;    // 11:00 PM
+const TOTAL_HOURS = END_HOUR - START_HOUR;  // 14
+const FIXED_HEADER_HEIGHT = 98; // nav(52) + day-headers(46)
+const PX_PER_HOUR = Math.floor((window.innerHeight - FIXED_HEADER_HEIGHT) / TOTAL_HOURS);
+const PX_PER_MIN = PX_PER_HOUR / 60;
+const TOTAL_HEIGHT = TOTAL_HOURS * PX_PER_HOUR;
+const MIN_BLOCK_HEIGHT = 22;
+
+const DAYS = [
+  { key: 'thursday', label: 'Thursday, April 16' },
+  { key: 'friday',   label: 'Friday, April 17' },
+  { key: 'saturday', label: 'Saturday, April 18' },
+  { key: 'sunday',   label: 'Sunday, April 19' },
+];
+
+// ── Color map ──
+const COLORS = {
+  blue:       { bg: '#AED6F1', border: '#2E86C1', text: '#154360' },
+  yellow:     { bg: '#F9E79F', border: '#D4AC0D', text: '#7D6608' },
+  green:      { bg: '#A9DFBF', border: '#239B56', text: '#145A32' },
+  tan:        { bg: '#D2B48C', border: '#A0785A', text: '#3E2000' },
+  dark_green: { bg: '#27AE60', border: '#1D8348', text: '#ffffff' },
+  orange:     { bg: '#F0883B', border: '#CA6F1E', text: '#ffffff' },
+  purple:     { bg: '#C39BD3', border: '#8E44AD', text: '#4A235A' },
+};
+
+function getColor(key) {
+  return COLORS[key] || COLORS.blue;
+}
+
+// ── Helpers ──
+function getChecked() {
+  try { return new Set(JSON.parse(localStorage.getItem(STORAGE_KEY)) || []); }
+  catch { return new Set(); }
+}
+
+function parseTime(str) {
+  if (!str) return null;
+  const m = str.match(/^(\d+):(\d+)\s*(AM|PM)$/i);
+  if (!m) return null;
+  let h = parseInt(m[1]);
+  const min = parseInt(m[2]);
+  const ap = m[3].toUpperCase();
+  if (ap === 'PM' && h !== 12) h += 12;
+  if (ap === 'AM' && h === 12) h = 0;
+  return h * 60 + min;
+}
+
+function dayKey(screening_date) {
+  const d = (screening_date || '').toLowerCase();
+  if (d.includes('thursday')) return 'thursday';
+  if (d.includes('friday'))   return 'friday';
+  if (d.includes('saturday')) return 'saturday';
+  if (d.includes('sunday'))   return 'sunday';
+  return null;
+}
+
+// ── Layout: assign columns to overlapping films ──
+function layoutFilms(films) {
+  if (!films.length) return [];
+
+  const sorted = films.map(f => ({ ...f })).sort((a, b) => a.startMins - b.startMins);
+
+  function overlaps(a, b) {
+    return a.startMins < b.endMins && a.endMins > b.startMins;
+  }
+
+  // Assign lanes (sub-columns)
+  for (let i = 0; i < sorted.length; i++) {
+    const taken = new Set();
+    for (let j = 0; j < i; j++) {
+      if (overlaps(sorted[j], sorted[i])) taken.add(sorted[j].lane);
+    }
+    let lane = 0;
+    while (taken.has(lane)) lane++;
+    sorted[i].lane = lane;
+  }
+
+  // Compute numLanes for each film = max concurrent lanes at any point during the film
+  for (let i = 0; i < sorted.length; i++) {
+    const concurrent = sorted.filter(f => overlaps(f, sorted[i]));
+    sorted[i].numLanes = Math.max(...concurrent.map(f => f.lane)) + 1;
+  }
+
+  return sorted;
+}
+
+// ── Build time gutter ──
+function buildTimeGutter() {
+  const gutter = document.getElementById('timeGutter');
+  let html = '';
+  for (let h = START_HOUR; h <= END_HOUR; h++) {
+    const label = h === 0 ? '12:00 AM'
+      : h < 12 ? `${h}:00 AM`
+      : h === 12 ? '12:00 PM'
+      : `${h - 12}:00 PM`;
+    html += `<div class="time-label" style="height:${PX_PER_HOUR}px">${label}</div>`;
+  }
+  gutter.innerHTML = html;
+  gutter.style.height = (TOTAL_HEIGHT + PX_PER_HOUR) + 'px';
+  document.querySelector('.calendar-inner').style.minHeight = (TOTAL_HEIGHT + PX_PER_HOUR) + 'px';
+}
+
+// ── Build hour lines for a day column ──
+function buildHourLines(col) {
+  for (let h = 0; h <= TOTAL_HOURS; h++) {
+    const line = document.createElement('div');
+    line.className = 'hour-line';
+    line.style.top = (h * PX_PER_HOUR) + 'px';
+    col.appendChild(line);
+    if (h < TOTAL_HOURS) {
+      const half = document.createElement('div');
+      half.className = 'half-line';
+      half.style.top = (h * PX_PER_HOUR + PX_PER_HOUR / 2) + 'px';
+      col.appendChild(half);
+    }
+  }
+}
+
+// ── Render calendar ──
+function render() {
+  const checkedIds = getChecked();
+
+  // Filter to checked films with valid times
+  const selected = FILMS.filter(f => {
+    if (!checkedIds.has(f.id)) return false;
+    const s = parseTime(f.screening_start_time);
+    const e = parseTime(f.screening_end_time);
+    return s !== null && e !== null && e > s;
+  }).map(f => ({
+    ...f,
+    startMins: parseTime(f.screening_start_time),
+    endMins: parseTime(f.screening_end_time),
+    dayKey: dayKey(f.screening_date),
+  })).filter(f => f.dayKey);
+
+  document.getElementById('film-count').textContent = selected.length;
+
+  // Group by day
+  const byDay = {};
+  DAYS.forEach(d => { byDay[d.key] = []; });
+  selected.forEach(f => { if (byDay[f.dayKey]) byDay[f.dayKey].push(f); });
+
+  const daysArea = document.getElementById('daysArea');
+  daysArea.innerHTML = '';
+
+  let hasAny = false;
+
+  DAYS.forEach(({ key }) => {
+    const col = document.createElement('div');
+    col.className = 'day-col';
+    col.style.height = (TOTAL_HEIGHT + PX_PER_HOUR) + 'px';
+
+    buildHourLines(col);
+
+    const dayFilms = layoutFilms(byDay[key]);
+
+    if (dayFilms.length) hasAny = true;
+
+    dayFilms.forEach(f => {
+      const color = getColor(f.schedule_color);
+      const topPx = Math.max(0, (f.startMins - START_HOUR * 60) * PX_PER_MIN);
+      const rawH = (f.endMins - f.startMins) * PX_PER_MIN;
+      const heightPx = Math.max(MIN_BLOCK_HEIGHT, rawH);
+
+      const leftPct = (f.lane / f.numLanes) * 100;
+      const widthPct = (1 / f.numLanes) * 100;
+      const GAP = 2; // px gap between columns
+
+      const block = document.createElement('div');
+      block.className = 'film-block';
+      block.style.cssText = `
+        top: ${topPx}px;
+        height: ${heightPx}px;
+        left: calc(${leftPct}% + ${GAP}px);
+        width: calc(${widthPct}% - ${GAP * 2}px);
+        background: ${color.bg};
+        border-left-color: ${color.border};
+        color: ${color.text};
+        z-index: ${10 + f.lane};
+      `;
+
+      const showVenue = heightPx > 35;
+      const showTime = heightPx > 50;
+
+      block.innerHTML = `
+        <div class="fb-title">${f.title}</div>
+        ${showVenue ? `<div class="fb-venue">${f.venue}</div>` : ''}
+        ${showTime ? `<div class="fb-time">${f.screening_start_time} – ${f.screening_end_time}</div>` : ''}
+      `;
+
+      // Tooltip
+      block.addEventListener('mouseenter', (e) => showTooltip(e, f));
+      block.addEventListener('mousemove', (e) => moveTooltip(e));
+      block.addEventListener('mouseleave', () => hideTooltip());
+
+      col.appendChild(block);
+    });
+
+    daysArea.appendChild(col);
+  });
+
+  // Empty state
+  if (!hasAny) {
+    const daysArea2 = document.getElementById('daysArea');
+    const msg = document.createElement('div');
+    msg.className = 'empty-state';
+    msg.style.position = 'fixed';
+    msg.style.inset = '98px 0 0 58px';
+    msg.innerHTML = `
+      <div class="empty-icon">📅</div>
+      <p>No films selected yet.<br>
+      Go to the <a href="films.html">Film List</a> and check the films you want to see.</p>
+    `;
+    document.body.appendChild(msg);
+  }
+}
+
+// ── Tooltip ──
+const tooltip = document.getElementById('tooltip');
+
+function showTooltip(e, f) {
+  document.getElementById('tt-title').textContent = f.title;
+  const rating = f.rating ? ` · ★ ${f.rating}` : '';
+  document.getElementById('tt-meta').innerHTML =
+    `${f.screening_start_time} – ${f.screening_end_time}<br>${f.venue} · ${f.category}${rating}<br>${(f.description || '').substring(0, 120)}${f.description && f.description.length > 120 ? '…' : ''}`;
+  moveTooltip(e);
+  tooltip.classList.add('visible');
+}
+
+function moveTooltip(e) {
+  const margin = 12;
+  const tw = tooltip.offsetWidth || 280;
+  const th = tooltip.offsetHeight || 100;
+  let x = e.clientX + margin;
+  let y = e.clientY + margin;
+  if (x + tw > window.innerWidth - 8) x = e.clientX - tw - margin;
+  if (y + th > window.innerHeight - 8) y = e.clientY - th - margin;
+  tooltip.style.left = x + 'px';
+  tooltip.style.top = y + 'px';
+}
+
+function hideTooltip() {
+  tooltip.classList.remove('visible');
+}
+
+// ── Init ──
+buildTimeGutter();
+render();
+
+// Re-render if storage changes in another tab
+window.addEventListener('storage', (e) => {
+  if (e.key === STORAGE_KEY) render();
+});
+</script>
+</body>
+</html>
